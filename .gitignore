@@ -45,3 +45,5 @@ bin/
 
 ### Springboot Config ###
 application.yml
+
+.idea/
