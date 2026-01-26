@@ -1,0 +1,94 @@
+package me.hwanghj.config.oauth;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import me.hwanghj.config.jwt.TokenProvider;
+import me.hwanghj.domain.RefreshToken;
+import me.hwanghj.domain.User;
+import me.hwanghj.repository.RefreshTokenRepository;
+import me.hwanghj.service.UserService;
+import me.hwanghj.util.CookieUtil;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.io.IOException;
+import java.time.Duration;
+
+@RequiredArgsConstructor        // final 필드 생성자 자동 생성.
+@Component
+public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    // 상수 설정.
+    public static final String REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
+    public static final Duration REFRESH_TOKEN_DURATION = Duration.ofDays(14);
+    public static final Duration ACCESS_TOKEN_DURATION = Duration.ofDays(1);
+    public static final String REDIRECT_PATH = "/articles";
+
+    // 생성자 주입.
+    public final TokenProvider tokenProvider;
+    public final RefreshTokenRepository refreshTokenRepository;
+    public final OAuth2AuthorizationRequestBasedOnCookieRepository authorizationRequestRepository;
+    public final UserService userService;
+
+    @Override
+    public void onAuthenticationSuccess(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication
+    ) throws IOException {
+        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
+
+        // 리스레시 토큰 생성 -> 저장 -> 쿠키에 저장.
+        String refreshToken = tokenProvider.generateToken(user, REFRESH_TOKEN_DURATION);
+        saveRefreshToken(user.getId(), refreshToken);
+        addRefreshTokenToCookie(request, response, refreshToken);
+
+        // 액세스 토큰 설정 -> 패스에 액세스 토큰 추가.
+        String accessToken = tokenProvider.generateToken(user, ACCESS_TOKEN_DURATION);
+        String targetUrl = getTargetUrl(accessToken);
+
+        // 인증 관련 설정값과 쿠키 제거.
+        clearAuthenticationAttributes(request, response);
+
+        // 리다리렉트.
+        getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    // 생성된 리프레시 토큰을 전달받아 DB에 저장.
+    private void saveRefreshToken(Long userId, String newRefreshToken) {
+        RefreshToken refreshToken = refreshTokenRepository
+                .findByUserId(userId)
+                .map(entity -> entity.update(newRefreshToken))
+                .orElse(new RefreshToken(userId, newRefreshToken));
+
+        refreshTokenRepository.save(refreshToken);
+    }
+
+    // 생성된 리프레시 토큰을 쿠키에 저장.
+    private void addRefreshTokenToCookie(HttpServletRequest request, HttpServletResponse response, String refreshToken) {
+        int cookieMaxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
+        CookieUtil.deleteCookie(request, response, REFRESH_TOKEN_COOKIE_NAME);
+        CookieUtil.addCookie(response, REFRESH_TOKEN_COOKIE_NAME, refreshToken, cookieMaxAge);
+    }
+
+    // 인증 관련 설정값과 쿠키 제거.
+    private void clearAuthenticationAttributes(HttpServletRequest request, HttpServletResponse response) {
+        super.clearAuthenticationAttributes(request);
+        authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
+    }
+
+    // 액세스 토큰을 패스에 추가.
+    private String getTargetUrl(String token) {
+        return UriComponentsBuilder
+                .fromUriString(REDIRECT_PATH)       // 취약한 API 사용 위치 경고 -> 스프링 부트 버전 업데이트로 해결 가능. 이 프로젝트에서는 수정 X.
+                .queryParam("token", token)
+                .build()
+                .toUriString();
+    }
+
+}
