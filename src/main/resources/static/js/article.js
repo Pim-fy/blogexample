@@ -234,7 +234,7 @@ if(commentCreateButton) {
 
         function success() {
             alert('등록 완료되었습니다.');
-            location.replace('/article/' + articleId);
+            location.replace('/articles/' + articleId);
         };
 
         function fail() {
