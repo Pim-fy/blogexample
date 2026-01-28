@@ -224,7 +224,7 @@ function httpRequest(method, url, body, success, fail) {
 const commentCreateButton = document.getElementById('comment-create-btn');
 
 if(commentCreateButton) {
-    commentCreateButton.addEventListener('click' => {
+    commentCreateButton.addEventListener('click', event => {
         articleId = document.getElementById('article-id').value;
 
         body = JSON.stringify({
