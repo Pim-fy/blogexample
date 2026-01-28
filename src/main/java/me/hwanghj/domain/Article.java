@@ -10,6 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -37,6 +38,12 @@ public class Article {
 
     @Column(name = "author", nullable = false)
     private String author;
+
+    @OneToMany(mappedBy = "article", cascade = CascadeType.REMOVE)
+    // mappedBy : 하위 엔터티가 상위 엔터티를 참조할 때 사용.
+    // cascade : 상위 엔터티 변경 시 하위 엔터티에 전파.
+    // REMOVE : 상위 엔터티 삭제 시 하위 엔터티 전체 삭제.
+    private List<Comment> comments;
 
     // 빌더 패턴으로 객체 생성
     @Builder

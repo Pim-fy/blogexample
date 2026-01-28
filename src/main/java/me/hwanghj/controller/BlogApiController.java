@@ -2,9 +2,8 @@ package me.hwanghj.controller;
 
 import lombok.RequiredArgsConstructor;
 import me.hwanghj.domain.Article;
-import me.hwanghj.dto.AddArticleRequest;
-import me.hwanghj.dto.ArticleResponse;
-import me.hwanghj.dto.UpdateArticleRequest;
+import me.hwanghj.domain.Comment;
+import me.hwanghj.dto.*;
 import me.hwanghj.service.BlogService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,5 +59,14 @@ public class BlogApiController {
 
         return ResponseEntity.ok()
                 .body(updatedArticle);
+    }
+
+    // 블로그 글 id로 글을 찾아 댓글 내용, 작성자, 블로그 글을 넘겨 save()메서드 호출하여 댓글 생성.
+    @PostMapping("/api/comments")
+    public ResponseEntity<AddCommentResponse> addComment(@RequestBody AddCommentRequest request, Principal principal) {
+        Comment savedComment = blogService.addComment(request, principal.getName());
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new AddCommentResponse(savedComment));
     }
 }

@@ -220,4 +220,29 @@ function httpRequest(method, url, body, success, fail) {
     });
 }
 
+// 댓글 생성 기능
+const commentCreateButton = document.getElementById('comment-create-btn');
+
+if(commentCreateButton) {
+    commentCreateButton.addEventListener('click' => {
+        articleId = document.getElementById('article-id').value;
+
+        body = JSON.stringify({
+            articleId : articleId,
+            content : document.getElementById('content').value
+        });
+
+        function success() {
+            alert('등록 완료되었습니다.');
+            location.replace('/article/' + articleId);
+        };
+
+        function fail() {
+            alert('등록 실패하였습니다.');
+            location.replace('/articles/' + articleId);
+        };
+
+        httpRequest('POST', '/api/comments', body, success, fail);
+    });
+}
 
