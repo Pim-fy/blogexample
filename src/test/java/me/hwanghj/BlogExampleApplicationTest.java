@@ -2,22 +2,29 @@ package me.hwanghj;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import me.hwanghj.domain.Article;
+import me.hwanghj.domain.User;
 import me.hwanghj.dto.AddArticleRequest;
 import me.hwanghj.dto.UpdateArticleRequest;
 import me.hwanghj.repository.BlogRepository;
+import me.hwanghj.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 
+import java.security.Principal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,11 +48,34 @@ class BlogExampleApplicationTest {
     @Autowired
     BlogRepository blogRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    User user;
+
     @BeforeEach
     public void mockMvcSetUp() {
         this.mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         blogRepository.deleteAll();
     }
+
+    @BeforeEach
+    void setSecurityContext() {
+        userRepository.deleteAll();
+        user = userRepository.save(User
+                .builder()
+                .email("test@test.com")
+                .password("1234")
+                .build());
+
+        // SecurityContext에 인증 정보 설정.
+        SecurityContext context = SecurityContextHolder.getContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(
+                user,
+                user.getPassword(),
+                user.getAuthorities()));
+    }
+
 
     @DisplayName("addArticle : 블로그 글 추가에 성공한다.")
     @Test
@@ -59,9 +89,17 @@ class BlogExampleApplicationTest {
         // 객체 JSON으로 직렬화.
         final String requestBody = objectMapper.writeValueAsString(userRequest);
 
+        Principal principal = Mockito.mock(Principal.class);
+        Mockito.when(principal.getName()).thenReturn("test_user");
+
+
         // when
         // 설정한 내용을 바탕으로 요청 전송.
-        ResultActions result = mockMvc.perform(post(url).contentType(MediaType.APPLICATION_JSON_VALUE).content(requestBody));
+        // principal 추가하여 인증 정보를 함께 보냄.
+        ResultActions result = mockMvc.perform(post(url)
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .principal(principal)
+                .content(requestBody));
 
         // then
         result.andExpect(status().isCreated());
@@ -84,6 +122,7 @@ class BlogExampleApplicationTest {
         blogRepository.save(Article.builder()
                 .title(title)
                 .content(content)
+                .author(user.getUsername())
                 .build());
 
 
@@ -108,6 +147,7 @@ class BlogExampleApplicationTest {
         Article savedArticle = blogRepository.save(Article.builder()
                 .title(title)
                 .content(content)
+                .author(user.getUsername())
                 .build());
 
         // when
@@ -131,6 +171,7 @@ class BlogExampleApplicationTest {
         Article savedArticle = blogRepository.save(Article.builder()
                 .title(title)
                 .content(content)
+                .author(user.getUsername())
                 .build());
 
         // when
@@ -154,6 +195,7 @@ class BlogExampleApplicationTest {
         Article savedArticle = blogRepository.save(Article.builder()
                 .title(title)
                 .content(content)
+                .author(user.getUsername())
                 .build());
 
         final String newTitle = "new Title";
